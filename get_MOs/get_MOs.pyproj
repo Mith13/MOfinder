@@ -4,13 +4,14 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>d7123180-25e5-40df-b34c-f2c93187f87d</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>get_MOs.py</StartupFile>
+    <StartupFile>get_MOs.py </StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>get_MOs</Name>
     <RootNamespace>get_MOs</RootNamespace>
+    <IsWindowsApplication>False</IsWindowsApplication>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
