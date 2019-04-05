@@ -19,50 +19,77 @@ class MolInfo:
 
 ################ MO CLASS #########################
 class MO:
-    def __init__ (self,header=None,pop=None,orb_number=-1,en=0):
+    def __init__ (self,header=None,pop=None,orb_number=-1,en=0, AOMO=False):
         self.header = header
         self.pop    = [float(i) for i in pop]
         self.orb_n  = (int)(orb_number)
-
+        self.energy = (float)(en)
+        self.AO_MO  = AOMO
 
         if all(len(i) != len(self.header[0]) for i in self.header):
-            print("There is some problem with creating MO. Different sizes for header: " + str(len(self.header[0])) + " " + str(len(self.header[1])) + " " + str(len(self.header[2])))
+            header_str = ""
+            for item in self.header:
+                header_str+=str(len(item))+" "
+            print("There is some problem with creating MO. Different sizes for header: " + header_str)
             exit()
         if len(self.pop) != len(self.header[0]):
-            print("There is some problem with creating MO. Different sizes for lists;  header:" +  str(len(self.header[0])) + " C: " + str(len(self.pop)))
+            print("There is some problem with creating MO. Different sizes for lists;  header:" +  str(len(self.header[0])) + " C: " + str(len(self.pop))) 
             exit()
 
-    def printMO (self):
-        if self.orb_n == 1:
-            print("Problem iwth
-        print ("Printing orbital " + '\033[91m' + str(self.orb_n) +  '\033[0m')
+    def printMO (self):   
+        thres = 5
+        if self.AO_MO is True: 
+            thres = 0.001
+        if self.orb_n == -1:
+            print("Problem with MO number")
+            exit()
+        print ("Printing orbital " + "E(" + '\033[91m' + str(self.orb_n) +  '\033[0m' +"): "+ str(self.energy))
         for i in range(0,len(self.pop)):
-            if self.pop[i] > 5:
-                print (self.header[0][i] + " " + self.header[1][i] + " " + self.header[2][i] + " " + '\033[92m' + str(self.pop[i]) +  '\033[0m')
+            if abs(self.pop[i]) > thres:
+                header_str = ""
+                for item in self.header:
+                    header_str+=item[i]+" "
+
+                print (header_str + " " + '\033[92m' + str(self.pop[i]) +  '\033[0m')
         print("")
 
 
 
-#Fuck Python
-def parseOutput(filename, atom, orb_type, thrs):
-    seg_header  = deque(maxlen=3)
-    empty_line  = False
-    found_seg   = False
-    orb_num     = ""
-    inputfile   = open(filename, 'r')
-    line        = inputfile.readline()
-    orb_list    = list()
-    MOs         = list()
-    n_elec      = 0
-    mult        = 0
-    dim         = 0
-    while line:
-        if not line.strip():
-            if empty_line is True:
-                found_seg = False
-            empty_line = True:
-        else :
+def empty_lines(empty,line):
+    empty_line   = False
+    empty_2lines = False
+    if not line.strip():
+        if empty is True:
+            empty_2lines = True 
+        empty_line = True
+    else:
             empty_line = False
+            empty_2lines = False
+    return empty_line,empty_2lines
+    
+
+#Fuck Python
+def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
+    seg_header   = deque(maxlen=3)
+    empty_line  = False
+    empty_2lines = False
+    found_pop    = False
+    found_mos    = False
+    orb_num      = ""
+    orb_en       = ""
+    inputfile    = open(filename, 'r') 
+    line         = inputfile.readline()
+    orb_list     = list() 
+    MOs_pop      = list() 
+    MOs_AO_MO    = list() 
+    n_elec       = 0
+    mult         = 0
+    dim          = 0
+
+    while line:
+        if "FINAL SINGLE POINT ENERGY" in line:
+            break
+        
         # Parse basic info
         if "Multiplicity           Mult            ...." in line:
             list1  = line.split()
@@ -73,101 +100,106 @@ def parseOutput(filename, atom, orb_type, thrs):
         if "Basis Dimension        Dim             ...." in line:
             list1  = line.split()
             dim = list1[-1]
+        
+        ######################################
         # Parse MO segment
+        ######################################
         if "MOLECULAR ORBITALS" in line:
-            found_seg = True
+           print ("Starting to analyze the MO coefficients")
+           found_mos = True
 
-        if found_seg is True:
-           idx2save = set()
-           loewdin_seg = list()
+        if found_mos is True:
+           idx2save = set() 
+           read_seg = list()
            save_MOs = False
-           search_str = atom + " " + orb_type
-           while "--------  --------  --------  --------  --------  --------" not in line and line:
-               #print (line)
+           #while "--------  --------  --------  --------  --------  --------" not in line and line:
+           while "                  --------  " not in line and line :
+               empty_line,empty_2lines=empty_lines(empty_line,line)
+               if empty_2lines is True:
+                   break
+               if "LOEWDIN REDUCED ORBITAL POPULATIONS PER MO" in line:
+                   break
                data = line.split()
-               loewdin_seg.append(data)
-               if search_str in line:
-                   #print(line)
-                   for i in range(3,len(data)):
-                       if (float)(data[i]) > thrs:
+               read_seg.append(data)
+               if len(data) > 0 and atom in data[0] and orb_type in data[1]:
+                   for i in range(2,len(data)):
+                       if (float)(data[i]) > thrsAOMO:
                            save_MOs = True
-#                           orb_data = []
-#                           orb_data.append(orb_num[i-3])
-#                           orb_data.append(data[0])
-#                           orb_data.append(data[1])
-#                           orb_data.append(data[2])
-#                           orb_data.append(data[i])
-                           orb_list.append([orb_num[i-3],data[0],data[1],data[2],data[i]])
+                           orb_list.append([orb_num[i-3],data[0],data[1],data[i]])
                            idx2save.add(i)
                seg_header.append(line)
                line = inputfile.readline()
 
            if save_MOs is True:
-               loewdin_seg = loewdin_seg[:len(loewdin_seg)-5]
-               loewdin_seg = list(map(list,zip(*loewdin_seg)))
-               MO_header = [loewdin_seg[0],loewdin_seg[1],loewdin_seg[2]]
-
+               if empty_2lines is True:
+                   read_seg = read_seg[:len(read_seg)-1]
+               else:
+                   read_seg = read_seg[:len(read_seg)-3]
+               read_seg = list(map(list,zip(*read_seg)))
+               MO_header = [read_seg[0],read_seg[1]]
                for i in idx2save:
-                  MOs.append(MO(MO_header,loewdin_seg[i],orb_num[i-3]))
+                  MOs_AO_MO.append(MO(MO_header,read_seg[i],orb_num[i-2],orb_en[i-2],True))
 
            orb_num = seg_header[0].split()
-           loewdin_seg.clear()
-        line = inputfile.readline()
+           orb_en  = seg_header[1].split()
 
-
+        ######################################
         # Parse Loewdin segment
+        ######################################
         if "LOEWDIN REDUCED ORBITAL POPULATIONS PER MO" in line:
-           found_seg = True
-
+           print ("Starting to analyze the Loewdin population per MO")
+           found_pop = True
+           #reset lists and bools
+           found_mos = False
+           orb_list.clear()
+        
         if "MAYER POPULATION ANALYSIS" in line:
             break
-        if found_seg is True:
-           idx2save = set()
-           loewdin_seg = list()
+        if found_pop is True:
+           idx2save = set() 
+           read_seg = list()
            save_MOs = False
            search_str = atom + " " + orb_type
-           while "--------  --------  --------  --------  --------  --------" not in line and line:
-               #print (line)
+           while "                  --------  " not in line and line :
+               empty_line,empty_2lines=empty_lines(empty_line,line)
+               if empty_2lines is True:
+                   break
                data = line.split()
-               loewdin_seg.append(data)
+               read_seg.append(data) 
                if search_str in line:
-                   #print(line)
                    for i in range(3,len(data)):
                        if (float)(data[i]) > thrs:
                            save_MOs = True
-#                           orb_data = []
-#                           orb_data.append(orb_num[i-3])
-#                           orb_data.append(data[0])
-#                           orb_data.append(data[1])
-#                           orb_data.append(data[2])
-#                           orb_data.append(data[i])
                            orb_list.append([orb_num[i-3],data[0],data[1],data[2],data[i]])
                            idx2save.add(i)
                seg_header.append(line)
                line = inputfile.readline()
 
            if save_MOs is True:
-               loewdin_seg = loewdin_seg[:len(loewdin_seg)-5]
-               loewdin_seg = list(map(list,zip(*loewdin_seg)))
-               MO_header = [loewdin_seg[0],loewdin_seg[1],loewdin_seg[2]]
+               if empty_2lines is True:
+                    read_seg = read_seg[:len(read_seg)-1]
+               else:
+                    read_seg = read_seg[:len(read_seg)-5]
+               read_seg = list(map(list,zip(*read_seg)))
+               MO_header = [read_seg[0],read_seg[1],read_seg[2]]
 
                for i in idx2save:
-                  MOs.append(MO(MO_header,loewdin_seg[i],orb_num[i-3]))
+                  MOs_pop.append(MO(MO_header,read_seg[i],orb_num[i-3],orb_en[i-3]))
 
            orb_num = seg_header[0].split()
-           loewdin_seg.clear()
+           orb_en  = seg_header[1].split()
+           read_seg.clear() 
         line = inputfile.readline()
+
     # sort according to MO number
     orb_list.sort(key=lambda x: int(x[0]))
-    MOs.sort(key=lambda x: x.orb_n)
-    # create MolInfo
-    mol_info = MolInfo(n_elec,mult,dim,found_seg)
-    if found_seg is True:
-       for dat in orb_list:
-           print("Orbital "+ '\033[91m' + dat[0] +  '\033[0m' + " has contribution from " + '\033[91m'+ dat[1]+dat[2] + " " + dat[3] + '\033[0m' + " equal " + '\033[92m' + dat[4] + '\033[0m')
-    else:
-        print ("There are no data to analyse");
-    return orb_list,mol_info,MOs
+    MOs_pop.sort(key=lambda x: x.orb_n)
+    MOs_AO_MO.sort(key=lambda x: x.orb_n)
+    
+    # create MolInfo 
+    mol_info = MolInfo(n_elec,mult,dim,found_pop or found_mos)
+    
+    return orb_list,mol_info,MOs_pop,MOs_AO_MO
 
 def prepareCharmolOrbs(orb_list,mol_info):
     orbs = []
@@ -212,9 +244,14 @@ if len(atom) < 2:
     atom+=" " * (2 - len(atom))
 
 print("Will printout orbitals with the population of " + orb_type + " on atom/s " + atom + " higher than " + str(thrs) +"%")
-orbitals,mol_info,MOs  = parseOutput(filename,atom,orb_type,thrs)
+
+orbitals,mol_info,MOs,AOMO  = parseOutput(filename,atom,orb_type,thrs,1e-3)
+
 prepareCharmolOrbs(orbitals,mol_info)
 mol_info.printInfo()
+
 for orb in MOs:
     orb.printMO()
 
+for orb in AOMO:
+    orb.printMO()
