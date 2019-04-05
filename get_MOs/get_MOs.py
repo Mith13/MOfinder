@@ -218,4 +218,3 @@ mol_info.printInfo()
 for orb in MOs:
     orb.printMO()
 
-

@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.168
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "get_MOs", "get_MOs\get_MOs.pyproj", "{D7123180-25E5-40DF-B34C-F2C93187F87D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D7123180-25E5-40DF-B34C-F2C93187F87D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D7123180-25E5-40DF-B34C-F2C93187F87D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5E6A7B35-2AC0-4B4B-9D41-092D435B8D10}
+	EndGlobalSection
+EndGlobal
