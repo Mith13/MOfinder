@@ -17,14 +17,13 @@ class MolInfo:
         print ("N of basis sets ... " + str(self.dim))
         print ("")
 
-################ MO CLASS #########################
-class MO:
-    def __init__ (self,header=None,pop=None,orb_number=-1,en=0, AOMO=False):
+################ base MO CLASS #########################
+class MO(object):
+    def __init__ (self,header=None,pop=None,orb_number=-1,en=0):
         self.header = header
         self.pop    = [float(i) for i in pop]
         self.orb_n  = (int)(orb_number)
         self.energy = (float)(en)
-        self.AO_MO  = AOMO
 
         if all(len(i) != len(self.header[0]) for i in self.header):
             header_str = ""
@@ -38,22 +37,49 @@ class MO:
 
     def printMO (self):   
         thres = 5
-        if self.AO_MO is True: 
-            thres = 0.001
         if self.orb_n == -1:
             print("Problem with MO number")
             exit()
-        print ("Printing orbital " + "E(" + '\033[91m' + str(self.orb_n) +  '\033[0m' +"): "+ str(self.energy))
+        print ("Printing orbital E(\033[91m{:3d}\033[0m): {:9.6f}".format(self.orb_n,self.energy))
         for i in range(0,len(self.pop)):
             if abs(self.pop[i]) > thres:
                 header_str = ""
                 for item in self.header:
                     header_str+=item[i]+" "
 
-                print (header_str + " " + '\033[92m' + str(self.pop[i]) +  '\033[0m')
+                print ("{:1.10s} \033[92m{:4.1f}\033[0m %".format(header_str,self.pop[i]))
         print("")
 
 
+################ AO_MO CLASS #########################
+class AO_MO(MO):
+
+    def printMO (self):   
+        thres = 0.001
+        if self.orb_n == -1:
+            print("Problem with MO number")
+            exit()
+        print ("Printing orbital E(\033[91m{:3d}\033[0m): {:9.6f}".format(self.orb_n,self.energy))
+        for i in range(0,len(self.pop)):
+            if abs(self.pop[i]) > thres:
+                header_str = ""
+                for item in self.header:
+                    header_str+=item[i]+" "
+
+                #print (header_str + " " + '\033[92m' + str(self.pop[i]) +  '\033[0m')
+                print ("{:<10} \033[92m{:<12.6}\033[0m".format(header_str,self.pop[i]))
+        print("")
+    def orb_content (self, orb_name):
+        orb_sum = 0
+        total   = 0
+        for i in range(0,len(self.pop)):
+            total += self.pop[i]*self.pop[i]
+            if orb_name in self.header[1][i]:
+                orb_sum += self.pop[i]*self.pop[i]
+        ratio = orb_sum/total*100
+        if ratio > 10:
+            print ("Orbital {} {} content is {:4.2f}".format(self.orb_n,orb_name,ratio))
+        return ratio
 
 def empty_lines(empty,line):
     empty_line   = False
@@ -138,7 +164,7 @@ def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
                read_seg = list(map(list,zip(*read_seg)))
                MO_header = [read_seg[0],read_seg[1]]
                for i in idx2save:
-                  MOs_AO_MO.append(MO(MO_header,read_seg[i],orb_num[i-2],orb_en[i-2],True))
+                  MOs_AO_MO.append(AO_MO(MO_header,read_seg[i],orb_num[i-2],orb_en[i-2]))
 
            orb_num = seg_header[0].split()
            orb_en  = seg_header[1].split()
@@ -254,4 +280,5 @@ for orb in MOs:
     orb.printMO()
 
 for orb in AOMO:
-    orb.printMO()
+    #orb.printMO()
+    orb.orb_content('d')
