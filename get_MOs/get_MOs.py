@@ -40,14 +40,14 @@ class MO(object):
         if self.orb_n == -1:
             print("Problem with MO number")
             exit()
-        print ("Printing orbital E(\033[91m{:3d}\033[0m): {:9.6f}".format(self.orb_n,self.energy))
+        print ("Printing orbital E(\033[91mv{:3d}v\033[0m): {:9.6f}".format(self.orb_n,self.energy))
         for i in range(0,len(self.pop)):
             if abs(self.pop[i]) > thres:
                 header_str = ""
                 for item in self.header:
                     header_str+=item[i]+" "
 
-                print ("{:1.10s} \033[92m{:4.1f}\033[0m %".format(header_str,self.pop[i]))
+                print ("{:1.10s} \033[92m {:4.1f} \033[0m %".format(header_str,self.pop[i]))
         print("")
 
 
@@ -59,7 +59,7 @@ class AO_MO(MO):
         if self.orb_n == -1:
             print("Problem with MO number")
             exit()
-        print ("Printing orbital E(\033[91m{:3d}\033[0m): {:9.6f}".format(self.orb_n,self.energy))
+        print ("Printing orbital E(\033[91m {:3d} \033[0m): {:9.6f}".format(self.orb_n,self.energy))
         for i in range(0,len(self.pop)):
             if abs(self.pop[i]) > thres:
                 header_str = ""
@@ -67,7 +67,7 @@ class AO_MO(MO):
                     header_str+=item[i]+" "
 
                 #print (header_str + " " + '\033[92m' + str(self.pop[i]) +  '\033[0m')
-                print ("{:<10} \033[92m{:<12.6}\033[0m".format(header_str,self.pop[i]))
+                print ("{:<10} \033[92m {:<12.6} \033[0m".format(header_str,self.pop[i]))
         print("")
     def orb_content (self, orb_name):
         orb_sum = 0
@@ -80,7 +80,7 @@ class AO_MO(MO):
         if ratio > 10:
             print ("Orbital {} {} content is {:4.2f}".format(self.orb_n,orb_name,ratio))
         return ratio
-
+# Auxialary functions 
 def empty_lines(empty,line):
     empty_line   = False
     empty_2lines = False
@@ -93,6 +93,8 @@ def empty_lines(empty,line):
             empty_2lines = False
     return empty_line,empty_2lines
     
+def compare_lists(list1,list2):
+    return list(set(list2)-set(list1))
 
 #Fuck Python
 def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
@@ -271,7 +273,7 @@ if len(atom) < 2:
 
 print("Will printout orbitals with the population of " + orb_type + " on atom/s " + atom + " higher than " + str(thrs) +"%")
 
-orbitals,mol_info,MOs,AOMO  = parseOutput(filename,atom,orb_type,thrs,1e-3)
+orbitals,mol_info,MOs,AOMOs  = parseOutput(filename,atom,orb_type,thrs,1e-5)
 
 prepareCharmolOrbs(orbitals,mol_info)
 mol_info.printInfo()
@@ -279,6 +281,12 @@ mol_info.printInfo()
 for orb in MOs:
     orb.printMO()
 
-for orb in AOMO:
-    #orb.printMO()
-    orb.orb_content('d')
+print ("You should also considerate these orbitals")
+extra_MOs=compare_lists([item.orb_n for item in MOs], [item.orb_n for item in AOMOs])
+for n in extra_MOs:
+    orb=next((item for item in MOs if n == item.orb_n),None)
+    if orb is not None:
+        orb.printMO()
+    orb=next((item for item in AOMOs if n == item.orb_n),None)
+    if orb is not None:
+        orb.orb_content('d')
