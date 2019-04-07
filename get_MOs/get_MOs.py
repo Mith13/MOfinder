@@ -96,6 +96,11 @@ def empty_lines(empty,line):
 def compare_lists(list1,list2):
     return list(set(list2)-set(list1))
 
+def find_permutations(list1,list2):
+    a=0
+    return a
+
+
 #Fuck Python
 def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
     seg_header   = deque(maxlen=3)
