@@ -97,7 +97,7 @@ def compare_lists(list1,list2):
     return list(set(list2)-set(list1))
 
 def find_permutations(list1,list2):
-    a=0
+    compare_lists(list1,list2)
     return a
 
 
