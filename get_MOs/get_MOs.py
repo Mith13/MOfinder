@@ -15,9 +15,11 @@ class MolInfo:
         self.found  = found_seg
 
     def printInfo (self):
+        print ("==== BASIC MOL. INFO =====")
         print ("N of electrons  ... " + str(self.n_elec))
         print ("Multiplicity    ... " + str(self.mult))
         print ("N of basis sets ... " + str(self.dim))
+        print ("Last occ. orb.  ... " + str(int(mol_info.n_elec/2+mol_info.mult%2)))
         print ("")
 
 ################ base MO CLASS #########################
@@ -154,6 +156,7 @@ def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
     empty_line  = False
     empty_2lines = False
     found_pop    = False
+    found_popred = False 
     found_mos    = False
     orb_num      = ""
     orb_en       = ""
@@ -161,13 +164,18 @@ def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
     line         = inputfile.readline()
     orb_list     = list() 
     MOs_pop      = list() 
+    MOs_red_pop  = list() 
     MOs_AO_MO    = list() 
     n_elec       = 0
     mult         = 0
     dim          = 0
     isBeta       = False
+    line_num     = 0
+    found        = [False,False,False]
     while line:
+        line_num +=1
         if "FINAL SINGLE POINT ENERGY" in line:
+            print("Found end of file")
             break
         
         # Parse basic info
@@ -180,13 +188,13 @@ def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
         if "Basis Dimension        Dim             ...." in line:
             list1  = line.split()
             dim = list1[-1]
-        
         ######################################
         # Parse MO segment
         ######################################
         if "MOLECULAR ORBITALS" in line:
            print ("Starting to analyze the MO coefficients")
            found_mos = True
+           found[0]  = True
 
         if found_mos is True:
            idx2save = set() 
@@ -194,11 +202,13 @@ def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
            save_MOs = False
            #while "--------  --------  --------  --------  --------  --------" not in line and line:
            # Find where orbital coeffs starts
-           while "                  --------  " not in line and line :
+           while "                  --------" not in line and line :
                empty_line,empty_2lines=empty_lines(empty_line,line)
-               if empty_2lines is True:
+               if empty_line is True:
+                   found_mos = False
                    break
-               if "LOEWDIN REDUCED ORBITAL POPULATIONS PER MO" in line:
+               if "ORBITAL POPULATIONS PER MO" in line or "SPIN DOWN  " in line:
+                   found_mos = False
                    break
                #Obviously ORCA is stupid and sometimes there is not space between two coeffs
                data = line.split()
@@ -216,6 +226,7 @@ def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
                            idx2save.add(i)
                seg_header.append(line)
                line = inputfile.readline()
+               line_num += 1
            # ORCA prints in six columns blocks, here we take care of distinguishing between
            # last or not last block
            if save_MOs is True:
@@ -225,6 +236,7 @@ def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
                else:
                    read_seg = read_seg[:len(read_seg)-3]
                read_seg = list(map(list,zip(*read_seg)))
+               #read_seg = [list(i) for i in zip(*read_seg)]
                MO_header = [read_seg[0],read_seg[1]]
                for i in idx2save:
                   # create instance for every MO above threshold 
@@ -237,28 +249,81 @@ def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
         # Parse Loewdin segment
         ######################################
         # Same things as in previous section
-        if "LOEWDIN REDUCED ORBITAL POPULATIONS PER MO" in line:
+        if "LOEWDIN ORBITAL POPULATIONS PER MO" in line:
            print ("Starting to analyze the Loewdin population per MO")
+           found[1]  = True
            found_pop = True
            #reset lists and bools
            found_mos = False
            isBeta    = False
            orb_list.clear()
         
-        if "MAYER POPULATION ANALYSIS" in line:
-            break
         if found_pop is True:
            idx2save = set() 
            read_seg = list()
            save_MOs = False
-           search_str = atom + " " + orb_type
-           while "                  --------  " not in line and line :
+            
+           while "                  --------" not in line and line :
+               if "SPIN DOWN" in line  and found_pop is True :
+                found_pop = False
+               empty_line,empty_2lines=empty_lines(empty_line,line)
+               if empty_2lines is True:
+                   found_pop = False
+                   break
+               data = line.split()
+               read_seg.append(data) 
+               if len(data) > 1 and atom in data[0] and orb_type in data[1]:
+                   for i in range(2,len(data)):
+                       if (float)(data[i]) > thrs/2:
+                           save_MOs = True
+                           orb_list.append([orb_num[i-2],data[0],data[1],data[i]])
+                           idx2save.add(i)
+               seg_header.append(line)
+               line = inputfile.readline()
+               line_num += 1
+           if save_MOs is True and found_pop is True:
+               if empty_2lines is True:
+                    read_seg = read_seg[:len(read_seg)-1]
+                    isBeta = True
+               else:
+                    read_seg = read_seg[:len(read_seg)-5]
+               read_seg = list(map(list,zip(*read_seg)))
+               MO_header = [read_seg[0],read_seg[1]]
+
+               for i in idx2save:
+                  MOs_pop.append(MO(MO_header,read_seg[i],orb_num[i-2],orb_en[i-2],isBeta))
+
+           orb_num = seg_header[0].split()
+           orb_en  = seg_header[1].split()
+        ######################################
+        # Parse Reduced Loewdin segment
+        ######################################
+        # Same things as in previous section
+        if "LOEWDIN REDUCED ORBITAL POPULATIONS PER MO" in line:
+           print ("Starting to analyze the Loewdin reduced population per MO")
+           found[2]  = True
+           found_popred = True
+           #reset lists and bools
+           found_mos = False
+           found_pop = False
+           isBeta    = False
+           orb_list.clear()
+        
+        if "MAYER POPULATION ANALYSIS" in line:
+            break
+        if found_popred is True:
+           idx2save = set() 
+           read_seg = list()
+           save_MOs = False
+           while "                  -------- " not in line and line :
+               if "SPIN DOWN" in line and found_popred is True:
+                  found_popred = False
                empty_line,empty_2lines=empty_lines(empty_line,line)
                if empty_2lines is True:
                    break
                data = line.split()
                read_seg.append(data) 
-               if search_str in line:
+               if len(data) > 3 and atom in (data[0]+data[1]) and orb_type in data[2]:
                    for i in range(3,len(data)):
                        if (float)(data[i]) > thrs:
                            save_MOs = True
@@ -266,8 +331,9 @@ def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
                            idx2save.add(i)
                seg_header.append(line)
                line = inputfile.readline()
+               line_num += 1
 
-           if save_MOs is True:
+           if save_MOs is True and found_popred is True:
                if empty_2lines is True:
                     read_seg = read_seg[:len(read_seg)-1]
                     isBeta = True
@@ -277,22 +343,28 @@ def parseOutput(filename, atom, orb_type, thrs,thrsAOMO):
                MO_header = [read_seg[0],read_seg[1],read_seg[2]]
 
                for i in idx2save:
-                  MOs_pop.append(MO(MO_header,read_seg[i],orb_num[i-3],orb_en[i-3],isBeta))
+                  MOs_red_pop.append(MO(MO_header,read_seg[i],orb_num[i-3],orb_en[i-3],isBeta))
 
            orb_num = seg_header[0].split()
            orb_en  = seg_header[1].split()
+
            read_seg.clear() 
         line = inputfile.readline()
     inputfile.close()
     # sort according to MO number
     orb_list.sort(key=lambda x: int(x[0]))
-    MOs_pop.sort(key=lambda x: x.orb_n)
-    MOs_AO_MO.sort(key=lambda x: x.orb_n)
-    
+#    MOs_pop.sort(key=lambda x: x.orb_n)
+#    MOs_AO_MO.sort(key=lambda x: x.orb_n)
     # create MolInfo 
     mol_info = MolInfo(n_elec,mult,dim,found_pop or found_mos)
-    
-    return orb_list,mol_info,MOs_pop,MOs_AO_MO
+    print("")
+    if found[0]  == False:
+        print("Could not found MO coefficients, pls add an option\n %output \n  Print[ P_MOs ] 1 \n end")
+    if found[1]  == False:
+        print("Could not found LOEWDING ORBITAL POP analysis, pls add an option\n %output \n  Print[ P_OrbPopMO_L ] 1 \n end")
+    if found[2]  == False:
+        print("Could not found LOEWDIN REDUCED ORBITAL POP analysis, pls add an option\n %output \n  Print[ P_ReducedOrbPopMO_L ] 1 \n end")
+    return orb_list,mol_info,MOs_pop,MOs_AO_MO,MOs_red_pop
 
 # creates orbitals for charmol, needs it in 1...99999 format
 def prepareCharmolOrbs(orb_list,mol_info):
@@ -332,22 +404,27 @@ filename = sys.argv[1]
 atom     = sys.argv[2]
 orb_type = sys.argv[3]
 thrs     = (float)(sys.argv[4])
-if thrs < 5.0:
-    thrs = 5.0
-if len(atom) < 2:
-    atom+=" " * (2 - len(atom))
+#if thrs < 5.0:
+#    thrs = 5.0
 
-print("Will printout orbitals with the population of " + orb_type + " on atom/s " + atom + " higher than " + str(thrs) +"%")
 
-orbitals,mol_info,MOs,AOMOs  = parseOutput(filename,atom,orb_type,thrs,1e-5)
+print("Analyzing " + orb_type + " on atom/s " + atom)
+orbitals,mol_info,MOs,AOMOs,red_MOs  = parseOutput(filename,atom,orb_type,thrs,1e-5)
 
 prepareCharmolOrbs(orbitals,mol_info)
 mol_info.printInfo()
 
+print ("===================================================================================================")
+print("Will printout reduced orbitals with the population of " + orb_type + " on atom/s " + atom + " higher than " + str(thrs) +"%\n")
+for orb in red_MOs:
+    orb.printMO(atom,orb_type)
+print ("===================================================================================================")
+print("Will printout orbitals with the population of " + orb_type + " on atom/s " + atom + " higher than " + str(thrs/2) +"%\n")
 for orb in MOs:
     orb.printMO(atom,orb_type)
 
 mos_in_AOMOs = []
+print ("===================================================================================================")
 print ("Printing all orbitals with content of " + orb_type + " higher than " + str(thrs/2))
 for orb in AOMOs:
     #orb.printMO()
